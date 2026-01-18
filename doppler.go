@@ -1,5 +1,23 @@
 // Package dopplerconfig provides a unified configuration management system
 // using Doppler as the primary source, with fallback support for local files.
+//
+// # Secret Notes
+//
+// When adding secrets to Doppler, use the Secret Notes feature to document
+// non-obvious information. Only add notes that provide value beyond what the
+// secret name already conveys. Good notes include:
+//
+//   - Format requirements (e.g., "Format: user@realm!tokenname")
+//   - Required pairings (e.g., "Must be paired with API_KEY")
+//   - Permission requirements (e.g., "Needs Zone:Edit permission")
+//   - Special handling (e.g., "Hashed with htpasswd for basic auth")
+//
+// Avoid notes that just restate the obvious (e.g., "API key for service X"
+// when the secret is named SERVICE_X_API_KEY).
+//
+// Set notes via CLI:
+//
+//	doppler secrets notes set SECRET_NAME "Your note here" --project myproject
 package dopplerconfig
 
 import (
