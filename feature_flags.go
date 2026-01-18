@@ -27,13 +27,15 @@ func NewFeatureFlags(values map[string]string, prefix string) *FeatureFlags {
 
 // IsEnabled checks if a feature flag is enabled.
 // Flag names are case-insensitive and the prefix is automatically added.
+// Thread-safe.
 func (f *FeatureFlags) IsEnabled(name string) bool {
 	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	// Check cache first
 	if cached, ok := f.cache[name]; ok {
-		f.mu.RUnlock()
 		return cached
 	}
-	f.mu.RUnlock()
 
 	// Build the full key name
 	key := f.buildKey(name)
@@ -51,10 +53,8 @@ func (f *FeatureFlags) IsEnabled(name string) bool {
 
 	result := parseBool(value)
 
-	// Cache the result
-	f.mu.Lock()
-	f.cache[name] = result
-	f.mu.Unlock()
+	// Note: We can't cache here while holding RLock.
+	// Caching is done on Update() instead for thread safety.
 
 	return result
 }
@@ -66,7 +66,11 @@ func (f *FeatureFlags) IsDisabled(name string) bool {
 
 // GetInt returns an integer value for a flag.
 // Returns defaultVal if the flag doesn't exist or isn't a valid integer.
+// Thread-safe.
 func (f *FeatureFlags) GetInt(name string, defaultVal int) int {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	key := f.buildKey(name)
 	value, exists := f.values[key]
 	if !exists {
@@ -81,7 +85,11 @@ func (f *FeatureFlags) GetInt(name string, defaultVal int) int {
 }
 
 // GetFloat returns a float value for a flag.
+// Thread-safe.
 func (f *FeatureFlags) GetFloat(name string, defaultVal float64) float64 {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	key := f.buildKey(name)
 	value, exists := f.values[key]
 	if !exists {
@@ -96,7 +104,11 @@ func (f *FeatureFlags) GetFloat(name string, defaultVal float64) float64 {
 }
 
 // GetString returns a string value for a flag.
+// Thread-safe.
 func (f *FeatureFlags) GetString(name string, defaultVal string) string {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	key := f.buildKey(name)
 	value, exists := f.values[key]
 	if !exists {
@@ -107,7 +119,11 @@ func (f *FeatureFlags) GetString(name string, defaultVal string) string {
 
 // GetStringSlice returns a string slice value for a flag.
 // Values are expected to be comma-separated.
+// Thread-safe.
 func (f *FeatureFlags) GetStringSlice(name string, defaultVal []string) []string {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	key := f.buildKey(name)
 	value, exists := f.values[key]
 	if !exists || value == "" {

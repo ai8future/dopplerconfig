@@ -5,6 +5,7 @@ package dopplerconfig
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -153,7 +154,11 @@ func (p *DopplerProvider) FetchProject(ctx context.Context, project, config stri
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("doppler API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, &DopplerError{
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("API returned status %d", resp.StatusCode),
+			Raw:        string(body),
+		}
 	}
 
 	var dopplerResp dopplerSecretsResponse
@@ -201,8 +206,10 @@ func (e *DopplerError) Error() string {
 }
 
 // IsDopplerError checks if an error is a Doppler API error.
+// Uses errors.As for proper error chain unwrapping.
 func IsDopplerError(err error) (*DopplerError, bool) {
-	if de, ok := err.(*DopplerError); ok {
+	var de *DopplerError
+	if errors.As(err, &de) {
 		return de, true
 	}
 	return nil, false

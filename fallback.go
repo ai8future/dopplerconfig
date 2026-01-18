@@ -5,15 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
+	"strings"
 )
 
 // FileProvider reads configuration from a local JSON file.
 // This is used as a fallback when Doppler is unavailable or for local development.
 type FileProvider struct {
-	path  string
-	mu    sync.RWMutex
-	cache map[string]string
+	path string
 }
 
 // NewFileProvider creates a new file-based provider.
@@ -48,11 +46,6 @@ func (p *FileProvider) FetchProject(ctx context.Context, project, config string)
 	// Convert to string map (flattening nested structures)
 	result := make(map[string]string, len(values))
 	flattenJSON("", values, result)
-
-	// Update cache
-	p.mu.Lock()
-	p.cache = result
-	p.mu.Unlock()
 
 	return result, nil
 }
@@ -92,22 +85,11 @@ func flattenJSON(prefix string, data map[string]interface{}, result map[string]s
 			for i, item := range v {
 				parts[i] = fmt.Sprintf("%v", item)
 			}
-			result[fullKey] = joinStrings(parts, ",")
+			result[fullKey] = strings.Join(parts, ",")
 		default:
 			result[fullKey] = fmt.Sprintf("%v", v)
 		}
 	}
-}
-
-func joinStrings(parts []string, sep string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	result := parts[0]
-	for _, p := range parts[1:] {
-		result += sep + p
-	}
-	return result
 }
 
 // Name returns the provider name.

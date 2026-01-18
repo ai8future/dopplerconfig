@@ -3,6 +3,7 @@ package dopplerconfig
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
@@ -370,6 +371,7 @@ func (l *multiTenantLoader[E, P]) updateProjectKeys() {
 type MultiTenantWatcher[E any, P any] struct {
 	loader   MultiTenantLoader[E, P]
 	interval time.Duration
+	logger   *slog.Logger
 
 	mu      sync.Mutex
 	running bool
@@ -382,7 +384,14 @@ func NewMultiTenantWatcher[E any, P any](loader MultiTenantLoader[E, P], interva
 	return &MultiTenantWatcher[E, P]{
 		loader:   loader,
 		interval: interval,
+		logger:   slog.Default(),
 	}
+}
+
+// WithLogger sets the logger for the watcher.
+func (w *MultiTenantWatcher[E, P]) WithLogger(logger *slog.Logger) *MultiTenantWatcher[E, P] {
+	w.logger = logger
+	return w
 }
 
 // Start begins watching for changes.
@@ -427,14 +436,20 @@ func (w *MultiTenantWatcher[E, P]) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			w.logger.Info("multi-tenant watcher stopping: context cancelled")
 			return
 		case <-w.stopCh:
+			w.logger.Info("multi-tenant watcher stopping: stop requested")
 			return
 		case <-ticker.C:
 			// Reload env config
-			w.loader.LoadEnv(ctx)
+			if _, err := w.loader.LoadEnv(ctx); err != nil {
+				w.logger.Warn("failed to reload env config", "error", err)
+			}
 			// Reload project configs
-			w.loader.ReloadProjects(ctx)
+			if _, err := w.loader.ReloadProjects(ctx); err != nil {
+				w.logger.Warn("failed to reload project configs", "error", err)
+			}
 		}
 	}
 }
