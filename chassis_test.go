@@ -120,8 +120,8 @@ func TestLoadBootstrapWithChassis_Defaults(t *testing.T) {
 	if cfg.FailurePolicy != FailurePolicyFallback {
 		t.Errorf("FailurePolicy = %d, want FailurePolicyFallback", cfg.FailurePolicy)
 	}
-	if !cfg.WatchEnabled == true {
-		// WatchEnabled should be false by default (empty string != "true")
+	if cfg.WatchEnabled {
+		t.Error("WatchEnabled should be false by default")
 	}
 }
 

@@ -87,7 +87,9 @@ func NewMultiTenantLoader[E any, P any](bootstrap MultiTenantBootstrap) (MultiTe
 
 	// Initialize primary provider (Doppler)
 	if bootstrap.IsEnabled() {
-		provider, err := NewDopplerProvider(bootstrap.Token, bootstrap.Project, bootstrap.Config)
+		provider, err := NewDopplerProvider(bootstrap.Token, bootstrap.Project, bootstrap.Config,
+			WithProviderLogger(slog.Default()),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create doppler provider: %w", err)
 		}

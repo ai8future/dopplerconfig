@@ -142,6 +142,9 @@ func WithAPIURL(url string) DopplerProviderOption {
 // control over HTTP behavior.
 func WithHTTPClient(client *http.Client) DopplerProviderOption {
 	return func(p *DopplerProvider) {
+		if client == nil {
+			client = &http.Client{Timeout: DefaultTimeout}
+		}
 		p.client = client
 		p.breaker = nil
 	}
