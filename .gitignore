@@ -54,3 +54,6 @@ dist/
 
 # Temp files
 tmp/
+
+# Worktrees
+.worktrees/
