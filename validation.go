@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Validator defines the interface for custom validation functions.
@@ -197,7 +198,11 @@ func runValidation(tag validationTag, value reflect.Value, fieldName string) *Va
 func validateMin(value reflect.Value, param string, fieldName string) *ValidationError {
 	min, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
-		return nil
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   param,
+			Message: fmt.Sprintf("invalid min validation parameter: %q is not a valid integer", param),
+		}
 	}
 
 	var val int64
@@ -225,7 +230,11 @@ func validateMin(value reflect.Value, param string, fieldName string) *Validatio
 func validateMax(value reflect.Value, param string, fieldName string) *ValidationError {
 	max, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
-		return nil
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   param,
+			Message: fmt.Sprintf("invalid max validation parameter: %q is not a valid integer", param),
+		}
 	}
 
 	var val int64
@@ -325,17 +334,46 @@ func validateHost(value reflect.Value, fieldName string) *ValidationError {
 	}
 
 	// Basic hostname validation
-	if host != "localhost" && net.ParseIP(host) == nil {
-		// It should at least have a dot for a domain
-		if !strings.Contains(host, ".") && host != "localhost" {
-			return &ValidationError{
-				Field:   fieldName,
-				Value:   s,
-				Message: "invalid hostname",
-			}
+	// Allow: IP addresses, localhost, single-label hosts (k8s services), and FQDNs
+	if net.ParseIP(host) != nil {
+		return nil // Valid IP address
+	}
+
+	// Validate hostname format (RFC 1123)
+	// Allow single-label hostnames for Kubernetes service names, etc.
+	if !isValidHostname(host) {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   s,
+			Message: "invalid hostname",
 		}
 	}
 	return nil
+}
+
+// isValidHostname checks if a hostname is valid per RFC 1123.
+// Allows single-label hostnames (e.g., "redis", "postgres") for k8s compatibility.
+func isValidHostname(host string) bool {
+	if len(host) == 0 || len(host) > 253 {
+		return false
+	}
+
+	// Each label must be 1-63 chars, alphanumeric or hyphen, not starting/ending with hyphen
+	labels := strings.Split(host, ".")
+	for _, label := range labels {
+		if len(label) == 0 || len(label) > 63 {
+			return false
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, c := range label {
+			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
@@ -383,6 +421,25 @@ func validateOneOf(value reflect.Value, param string, fieldName string) *Validat
 	}
 }
 
+// regexCache caches compiled regular expressions for validation.
+var regexCache sync.Map
+
+// getCompiledRegex returns a cached compiled regex, or compiles and caches it.
+func getCompiledRegex(pattern string) (*regexp.Regexp, error) {
+	if cached, ok := regexCache.Load(pattern); ok {
+		return cached.(*regexp.Regexp), nil
+	}
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in cache (may race with another goroutine, but that's fine)
+	regexCache.Store(pattern, re)
+	return re, nil
+}
+
 func validateRegex(value reflect.Value, pattern string, fieldName string) *ValidationError {
 	if value.Kind() != reflect.String {
 		return nil
@@ -392,7 +449,7 @@ func validateRegex(value reflect.Value, pattern string, fieldName string) *Valid
 		return nil
 	}
 
-	re, err := regexp.Compile(pattern)
+	re, err := getCompiledRegex(pattern)
 	if err != nil {
 		return &ValidationError{
 			Field:   fieldName,

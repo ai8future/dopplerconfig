@@ -3,6 +3,7 @@ package dopplerconfig
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strconv"
 	"strings"
@@ -34,11 +35,23 @@ type Loader[T any] interface {
 	Close() error
 }
 
+// LoaderOption configures a Loader.
+type LoaderOption[T any] func(*loader[T])
+
+// WithLoaderLogger sets the logger for the loader.
+// Compatible with any *slog.Logger, including chassis-go's logz.New().
+func WithLoaderLogger[T any](logger *slog.Logger) LoaderOption[T] {
+	return func(l *loader[T]) {
+		l.logger = logger
+	}
+}
+
 // loader implements Loader[T].
 type loader[T any] struct {
 	provider Provider
 	fallback Provider
 	bootstrap BootstrapConfig
+	logger    *slog.Logger
 
 	mu        sync.RWMutex
 	current   *T
@@ -48,9 +61,14 @@ type loader[T any] struct {
 
 // NewLoader creates a new typed configuration loader.
 // It initializes the appropriate providers based on the bootstrap config.
-func NewLoader[T any](bootstrap BootstrapConfig) (Loader[T], error) {
+func NewLoader[T any](bootstrap BootstrapConfig, opts ...LoaderOption[T]) (Loader[T], error) {
 	l := &loader[T]{
 		bootstrap: bootstrap,
+		logger:    slog.Default(),
+	}
+
+	for _, opt := range opts {
+		opt(l)
 	}
 
 	// Initialize primary provider (Doppler)
@@ -77,11 +95,16 @@ func NewLoader[T any](bootstrap BootstrapConfig) (Loader[T], error) {
 
 // NewLoaderWithProvider creates a loader with a custom provider.
 // Useful for testing or custom provider implementations.
-func NewLoaderWithProvider[T any](provider Provider, fallback Provider) Loader[T] {
-	return &loader[T]{
+func NewLoaderWithProvider[T any](provider Provider, fallback Provider, opts ...LoaderOption[T]) Loader[T] {
+	l := &loader[T]{
 		provider: provider,
 		fallback: fallback,
+		logger:   slog.Default(),
 	}
+	for _, opt := range opts {
+		opt(l)
+	}
+	return l
 }
 
 // Load implements Loader.Load.
@@ -109,6 +132,12 @@ func (l *loader[T]) loadFromProvider(ctx context.Context, isReload bool) (*T, er
 
 	// Fall back if primary failed or wasn't available
 	if values == nil && l.fallback != nil {
+		if err != nil {
+			l.logger.Warn("primary provider failed, trying fallback",
+				"error", err,
+				"fallback", l.fallback.Name(),
+			)
+		}
 		values, err = l.fallback.Fetch(ctx)
 		if err == nil {
 			source = l.fallback.Name()
@@ -121,7 +150,7 @@ func (l *loader[T]) loadFromProvider(ctx context.Context, isReload bool) (*T, er
 		case FailurePolicyFail:
 			return nil, fmt.Errorf("failed to load configuration: %w", err)
 		case FailurePolicyWarn:
-			// Create empty config with defaults only
+			l.logger.Warn("all providers failed, using defaults only", "error", err)
 			values = make(map[string]string)
 			source = "defaults"
 		default:
@@ -251,10 +280,12 @@ func unmarshalStruct(values map[string]string, v reflect.Value, prefix string, w
 			continue
 		}
 
-		// Get the doppler tag
+		// Get the doppler tag, falling back to env tag for chassis-go compatibility
 		dopplerKey := field.Tag.Get(TagDoppler)
 		if dopplerKey == "" {
-			// Use field name if no tag
+			dopplerKey = field.Tag.Get(TagEnv)
+		}
+		if dopplerKey == "" {
 			dopplerKey = prefix + field.Name
 		}
 
@@ -346,14 +377,45 @@ func setFieldValue(v reflect.Value, s string) error {
 		v.SetBool(b)
 
 	case reflect.Slice:
-		if v.Type().Elem().Kind() == reflect.String {
-			// Split comma-separated values
-			parts := strings.Split(s, ",")
-			for i := range parts {
-				parts[i] = strings.TrimSpace(parts[i])
-			}
+		// Split comma-separated values
+		parts := strings.Split(s, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+
+		elemType := v.Type().Elem()
+		switch elemType.Kind() {
+		case reflect.String:
 			v.Set(reflect.ValueOf(parts))
-		} else {
+		case reflect.Int:
+			ints := make([]int, len(parts))
+			for i, p := range parts {
+				val, err := strconv.Atoi(p)
+				if err != nil {
+					return fmt.Errorf("invalid int in slice: %s", p)
+				}
+				ints[i] = val
+			}
+			v.Set(reflect.ValueOf(ints))
+		case reflect.Bool:
+			bools := make([]bool, len(parts))
+			for i, p := range parts {
+				val, err := strconv.ParseBool(p)
+				if err != nil {
+					// Handle alternate boolean values
+					switch strings.ToLower(p) {
+					case "yes", "y", "on", "enabled", "1":
+						val = true
+					case "no", "n", "off", "disabled", "0":
+						val = false
+					default:
+						return fmt.Errorf("invalid bool in slice: %s", p)
+					}
+				}
+				bools[i] = val
+			}
+			v.Set(reflect.ValueOf(bools))
+		default:
 			return fmt.Errorf("unsupported slice type: %v", v.Type())
 		}
 

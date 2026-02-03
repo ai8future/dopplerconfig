@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-03
+
+### Breaking
+- **Go 1.25.5 required** (bumped from 1.22.0) due to chassis-go dependency
+- `chassis-go` is now a compile-time dependency
+
+### Added
+- **chassis-go integration** for resilient Doppler API calls
+  - `DopplerProvider` now uses `call.Client` with automatic retries (3 attempts, exponential backoff) and circuit breaking (opens after 5 consecutive failures)
+  - `WithCallOptions()` for custom call.Client configuration
+  - `WithProviderLogger()` and `WithLoaderLogger()` for explicit `*slog.Logger` injection
+  - `CircuitState()` method on `DopplerProvider` for health check integration
+- `env` struct tag as fallback for `doppler` tag, enabling single structs to work with both `dopplerconfig` and `chassis-go/config.MustLoad`
+- `LoadBootstrapWithChassis()` to load bootstrap config via `config.MustLoad`
+- `ValidateConfig()` bridge function for validating chassis-go-loaded structs
+- Re-exported circuit breaker constants (`CircuitStateClosed`, `CircuitStateOpen`, `CircuitStateHalfOpen`) and `ErrCircuitOpen`
+- `LoaderOption[T]` type for configuring loaders with options like `WithLoaderLogger`
+- New `chassis.go` file consolidating all chassis-go bridge functions
+- Comprehensive test coverage for all new features (`chassis_test.go`)
+
+### Changed
+- `DopplerProvider.Close()` no longer calls `CloseIdleConnections()` (managed by `call.Client`)
+- `NewLoader` now accepts variadic `LoaderOption[T]` parameters
+- `NewLoaderWithProvider` now accepts variadic `LoaderOption[T]` parameters
+- Error body read limited to 1KB in Doppler API error responses
+
 ## [1.0.0] - 2026-01-18
 
 ### Changed

@@ -76,21 +76,6 @@ type multiTenantLoader[E any, P any] struct {
 // MultiTenantBootstrap extends BootstrapConfig for multi-tenant scenarios.
 type MultiTenantBootstrap struct {
 	BootstrapConfig
-
-	// EnvProject is the Doppler project for environment config.
-	// If empty, uses the main Project field.
-	EnvProject string
-
-	// EnvConfig is the Doppler config for environment config.
-	// If empty, uses the main Config field.
-	EnvConfig string
-
-	// ProjectPrefix is the prefix for project-specific configs in Doppler.
-	// For example, "projects/" would map project "abc" to config "projects/abc".
-	ProjectPrefix string
-
-	// ProjectSuffix is the suffix for project-specific configs.
-	ProjectSuffix string
 }
 
 // NewMultiTenantLoader creates a new multi-tenant loader.
@@ -204,13 +189,27 @@ func (l *multiTenantLoader[E, P]) ReloadProjects(ctx context.Context) (*ReloadDi
 
 	// Reload each project
 	newProjects := make(map[string]*P, len(oldCodes))
+	var reloadErrors []string
 	for code := range oldCodes {
 		cfg, err := l.fetchAndParse(ctx, code)
 		if err != nil {
 			// Log warning but continue with other projects
+			slog.Warn("failed to reload project config",
+				"project", code,
+				"error", err,
+			)
+			reloadErrors = append(reloadErrors, code)
 			continue
 		}
 		newProjects[code] = cfg
+	}
+
+	// Log summary if any projects failed to reload
+	if len(reloadErrors) > 0 {
+		slog.Error("some projects failed to reload",
+			"failed_count", len(reloadErrors),
+			"failed_projects", reloadErrors,
+		)
 	}
 
 	// Calculate diff

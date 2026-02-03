@@ -29,10 +29,19 @@ func NewFeatureFlags(values map[string]string, prefix string) *FeatureFlags {
 // Flag names are case-insensitive and the prefix is automatically added.
 // Thread-safe.
 func (f *FeatureFlags) IsEnabled(name string) bool {
+	// Fast path: check cache with read lock
 	f.mu.RLock()
-	defer f.mu.RUnlock()
+	if cached, ok := f.cache[name]; ok {
+		f.mu.RUnlock()
+		return cached
+	}
+	f.mu.RUnlock()
 
-	// Check cache first
+	// Slow path: compute and cache with write lock
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// Double-check after acquiring write lock
 	if cached, ok := f.cache[name]; ok {
 		return cached
 	}
@@ -53,8 +62,8 @@ func (f *FeatureFlags) IsEnabled(name string) bool {
 
 	result := parseBool(value)
 
-	// Note: We can't cache here while holding RLock.
-	// Caching is done on Update() instead for thread safety.
+	// Cache the result
+	f.cache[name] = result
 
 	return result
 }

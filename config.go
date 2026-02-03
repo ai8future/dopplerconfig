@@ -90,6 +90,13 @@ const (
 	// Example: `doppler:"REDIS_PASSWORD"`
 	TagDoppler = "doppler"
 
+	// TagEnv is an alternative struct tag for chassis-go compatibility.
+	// When the doppler tag is missing, the env tag is used as a fallback.
+	// This allows a single struct to work with both dopplerconfig and
+	// chassis-go's config.MustLoad.
+	// Example: `env:"REDIS_PASSWORD"`
+	TagEnv = "env"
+
 	// TagDefault is the struct tag for default values.
 	// Example: `default:"50051"`
 	TagDefault = "default"
