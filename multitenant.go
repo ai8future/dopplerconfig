@@ -7,6 +7,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/ai8future/chassis-go/v5/work"
 )
 
 // MultiTenantLoader provides configuration loading for multi-tenant systems.
@@ -166,47 +168,77 @@ func (l *multiTenantLoader[E, P]) LoadProject(ctx context.Context, code string) 
 }
 
 // LoadAllProjects implements MultiTenantLoader.LoadAllProjects.
+// Projects are loaded in parallel with bounded concurrency (5 workers).
 func (l *multiTenantLoader[E, P]) LoadAllProjects(ctx context.Context, projectCodes []string) (map[string]*P, error) {
-	result := make(map[string]*P, len(projectCodes))
-
-	for _, code := range projectCodes {
-		cfg, err := l.LoadProject(ctx, code)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load project %s: %w", code, err)
-		}
-		result[code] = cfg
+	type codeResult struct {
+		code string
+		cfg  *P
 	}
 
-	return result, nil
+	results, err := work.Map(ctx, projectCodes, func(ctx context.Context, code string) (codeResult, error) {
+		cfg, parseErr := l.fetchAndParse(ctx, code)
+		if parseErr != nil {
+			return codeResult{}, fmt.Errorf("failed to load project %s: %w", code, parseErr)
+		}
+		return codeResult{code: code, cfg: cfg}, nil
+	}, work.Workers(5))
+	if err != nil {
+		return nil, err
+	}
+
+	l.mu.Lock()
+	out := make(map[string]*P, len(results))
+	for _, r := range results {
+		out[r.code] = r.cfg
+		l.projects[r.code] = r.cfg
+	}
+	l.updateProjectKeys()
+	l.mu.Unlock()
+
+	return out, nil
 }
 
 // ReloadProjects implements MultiTenantLoader.ReloadProjects.
+// Projects are reloaded in parallel with bounded concurrency (5 workers).
 func (l *multiTenantLoader[E, P]) ReloadProjects(ctx context.Context) (*ReloadDiff, error) {
 	l.mu.RLock()
+	codes := make([]string, 0, len(l.projects))
 	oldCodes := make(map[string]bool, len(l.projects))
 	for code := range l.projects {
+		codes = append(codes, code)
 		oldCodes[code] = true
 	}
 	l.mu.RUnlock()
 
-	// Reload each project
-	newProjects := make(map[string]*P, len(oldCodes))
-	var reloadErrors []string
-	for code := range oldCodes {
+	type reloadResult struct {
+		code string
+		cfg  *P
+	}
+
+	// Reload each project in parallel. work.Map returns partial results even on error.
+	results, mapErr := work.Map(ctx, codes, func(ctx context.Context, code string) (reloadResult, error) {
 		cfg, err := l.fetchAndParse(ctx, code)
 		if err != nil {
-			// Log warning but continue with other projects
 			slog.Warn("failed to reload project config",
 				"project", code,
 				"error", err,
 			)
-			reloadErrors = append(reloadErrors, code)
-			continue
+			return reloadResult{}, err
 		}
-		newProjects[code] = cfg
+		return reloadResult{code: code, cfg: cfg}, nil
+	}, work.Workers(5))
+
+	// Collect successful reloads (work.Map returns results for all items, including failed ones).
+	newProjects := make(map[string]*P, len(results))
+	var reloadErrors []string
+	for i, r := range results {
+		if r.cfg != nil {
+			newProjects[r.code] = r.cfg
+		} else if mapErr != nil {
+			reloadErrors = append(reloadErrors, codes[i])
+		}
 	}
 
-	// Log summary if any projects failed to reload
 	if len(reloadErrors) > 0 {
 		slog.Error("some projects failed to reload",
 			"failed_count", len(reloadErrors),

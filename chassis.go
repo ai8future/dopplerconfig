@@ -1,10 +1,12 @@
 package dopplerconfig
 
 import (
+	"context"
 	"time"
 
-	"github.com/ai8future/chassis-go/call"
-	"github.com/ai8future/chassis-go/config"
+	chassis "github.com/ai8future/chassis-go/v5"
+	"github.com/ai8future/chassis-go/v5/call"
+	"github.com/ai8future/chassis-go/v5/config"
 )
 
 // bootstrapEnv is the struct used by LoadBootstrapWithChassis to load
@@ -78,3 +80,28 @@ const CircuitStateHalfOpen = call.StateHalfOpen
 
 // ErrCircuitOpen is returned when the Doppler API circuit breaker is open.
 var ErrCircuitOpen = call.ErrCircuitOpen
+
+// ChassisVersion is the version of the chassis-go toolkit in use.
+// Useful for diagnostic logging or health endpoints.
+var ChassisVersion = chassis.Version
+
+// RequireChassisVersion calls chassis.RequireMajor(5) so that consuming
+// services can satisfy the version gate without importing chassis-go directly.
+// Must be called before any chassis-go API (config.MustLoad, call.New, work.Map, etc.).
+func RequireChassisVersion() {
+	chassis.RequireMajor(5)
+}
+
+// HealthCheck returns a health check function compatible with chassis-go's
+// health.Check type. It checks the DopplerProvider's circuit breaker state
+// (fast path) and, if the circuit is closed or half-open, attempts a Fetch
+// (slow path) to verify end-to-end connectivity.
+func HealthCheck(provider *DopplerProvider) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		if provider.CircuitState() == call.StateOpen {
+			return call.ErrCircuitOpen
+		}
+		_, err := provider.Fetch(ctx)
+		return err
+	}
+}

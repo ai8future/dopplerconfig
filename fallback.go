@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/ai8future/chassis-go/v5/secval"
 )
 
 // FileProvider reads configuration from a local JSON file.
@@ -35,6 +37,10 @@ func (p *FileProvider) FetchProject(ctx context.Context, project, config string)
 			return nil, fmt.Errorf("fallback file not found: %s", p.path)
 		}
 		return nil, fmt.Errorf("failed to read fallback file: %w", err)
+	}
+
+	if err := secval.ValidateJSON(data); err != nil {
+		return nil, fmt.Errorf("fallback file security validation failed: %w", err)
 	}
 
 	// Parse as flat key-value JSON

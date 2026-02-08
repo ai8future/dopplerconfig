@@ -2,11 +2,21 @@ package dopplerconfig
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
 
-	"github.com/ai8future/chassis-go/call"
-	"github.com/ai8future/chassis-go/testkit"
+	chassis "github.com/ai8future/chassis-go/v5"
+	"github.com/ai8future/chassis-go/v5/call"
+	"github.com/ai8future/chassis-go/v5/testkit"
 )
+
+func TestMain(m *testing.M) {
+	chassis.RequireMajor(5)
+	os.Exit(m.Run())
+}
 
 // EnvTagConfig tests that the env tag works as a fallback for doppler tag.
 type EnvTagConfig struct {
@@ -221,4 +231,150 @@ func TestCircuitStateConstants(t *testing.T) {
 	if CircuitStateHalfOpen != call.StateHalfOpen {
 		t.Error("CircuitStateHalfOpen mismatch")
 	}
+}
+
+func TestRequireChassisVersion(t *testing.T) {
+	// RequireChassisVersion should not panic — TestMain already called RequireMajor(5),
+	// and calling it again is safe (idempotent).
+	RequireChassisVersion()
+}
+
+func TestChassisVersion(t *testing.T) {
+	if ChassisVersion == "" {
+		t.Error("ChassisVersion should not be empty")
+	}
+	// Should be a semver starting with "5."
+	if ChassisVersion[0] != '5' {
+		t.Errorf("ChassisVersion = %q, want major version 5", ChassisVersion)
+	}
+}
+
+func TestHealthCheck_Healthy(t *testing.T) {
+	// Use a mock HTTP server that returns valid Doppler JSON
+	srv := newTestDopplerServer(t, `{"secrets":{"KEY":{"raw":"value"}}}`, 200)
+	defer srv.Close()
+
+	provider, err := NewDopplerProvider("test-token", "proj", "dev",
+		WithAPIURL(srv.URL),
+		WithHTTPClient(srv.Client()),
+	)
+	if err != nil {
+		t.Fatalf("NewDopplerProvider failed: %v", err)
+	}
+
+	check := HealthCheck(provider)
+	if err := check(context.Background()); err != nil {
+		t.Errorf("HealthCheck returned error for healthy provider: %v", err)
+	}
+}
+
+func TestHealthCheck_CircuitOpen(t *testing.T) {
+	provider, err := NewDopplerProvider("test-token", "proj", "dev")
+	if err != nil {
+		t.Fatalf("NewDopplerProvider failed: %v", err)
+	}
+
+	// Force circuit open by tripping the breaker
+	for i := 0; i < DefaultBreakerThreshold+1; i++ {
+		provider.breaker.Record(false)
+	}
+
+	check := HealthCheck(provider)
+	err = check(context.Background())
+	if err == nil {
+		t.Error("HealthCheck should return error when circuit is open")
+	}
+	if err != call.ErrCircuitOpen {
+		t.Errorf("HealthCheck error = %v, want ErrCircuitOpen", err)
+	}
+}
+
+func TestDopplerError_ServiceError(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantHTTP   int
+	}{
+		{"unauthorized 401", 401, 401},
+		{"forbidden 403", 403, 401}, // maps to UnauthorizedError (401)
+		{"not found 404", 404, 404},
+		{"rate limit 429", 429, 429},
+		{"server error 500", 500, 503}, // maps to DependencyError (503)
+		{"server error 502", 502, 503},
+		{"unknown 418", 418, 500}, // maps to InternalError (500)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			de := &DopplerError{
+				StatusCode: tt.statusCode,
+				Message:    "test error",
+			}
+			se := de.ServiceError()
+			if se.HTTPCode != tt.wantHTTP {
+				t.Errorf("ServiceError().HTTPCode = %d, want %d", se.HTTPCode, tt.wantHTTP)
+			}
+			if se.Details["doppler_status"] != fmt.Sprintf("%d", tt.statusCode) {
+				t.Errorf("ServiceError().Details[doppler_status] = %q, want %q",
+					se.Details["doppler_status"], fmt.Sprintf("%d", tt.statusCode))
+			}
+			// Verify cause chain
+			if se.Unwrap() != de {
+				t.Error("ServiceError().Unwrap() should return original DopplerError")
+			}
+		})
+	}
+}
+
+func TestSecvalRejectsDangerousKeys_DopplerResponse(t *testing.T) {
+	// Mock server returns JSON with a dangerous key
+	srv := newTestDopplerServer(t, `{"secrets":{"__proto__":{"raw":"evil"}}}`, 200)
+	defer srv.Close()
+
+	provider, err := NewDopplerProvider("test-token", "proj", "dev",
+		WithAPIURL(srv.URL),
+		WithHTTPClient(srv.Client()),
+	)
+	if err != nil {
+		t.Fatalf("NewDopplerProvider failed: %v", err)
+	}
+
+	_, err = provider.Fetch(context.Background())
+	if err == nil {
+		t.Error("Fetch should reject response with dangerous key __proto__")
+	}
+}
+
+func TestSecvalRejectsDangerousKeys_FallbackFile(t *testing.T) {
+	// Write a fallback file with a dangerous key
+	tmpFile := t.TempDir() + "/dangerous.json"
+	if err := os.WriteFile(tmpFile, []byte(`{"__proto__": "evil"}`), 0600); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	fp := NewFileProvider(tmpFile)
+	_, err := fp.Fetch(context.Background())
+	if err == nil {
+		t.Error("FileProvider.Fetch should reject file with dangerous key __proto__")
+	}
+}
+
+// newTestDopplerServer creates a test HTTP server that returns the given body.
+func newTestDopplerServer(t *testing.T, body string, statusCode int) *httpTestServer {
+	t.Helper()
+	return newHTTPTestServer(body, statusCode)
+}
+
+// httpTestServer wraps net/http/httptest for test convenience.
+type httpTestServer struct {
+	*httptest.Server
+}
+
+func newHTTPTestServer(body string, statusCode int) *httpTestServer {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+		w.Write([]byte(body))
+	}))
+	return &httpTestServer{srv}
 }

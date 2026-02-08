@@ -1,15 +1,20 @@
 // Package dopplerconfig provides a unified configuration management system
 // using Doppler as the primary source, with fallback support for local files.
 //
-// # chassis-go Integration
+// # chassis-go v5.0.0 Integration
 //
-// This package integrates with [github.com/ai8future/chassis-go] for resilient
-// HTTP calls, structured logging, and test utilities.
+// This package requires chassis-go v5.0.0+. Services must call
+// [RequireChassisVersion] (or chassis.RequireMajor(5) directly) before using
+// any chassis-go API. This is enforced at runtime — call.New, config.MustLoad,
+// and work.Map will crash without it.
 //
 // The DopplerProvider uses chassis-go's call.Client by default, providing
 // automatic retries with exponential backoff and circuit breaking for
 // Doppler API calls. Use [WithProviderLogger] to inject a chassis-go
 // logz.New() logger (or any *slog.Logger) for structured logging.
+//
+// API responses and fallback files are validated with chassis-go's secval
+// package to detect dangerous JSON keys and excessive nesting depth.
 //
 // Config structs support both the "doppler" and "env" struct tags, allowing
 // a single struct to work with both dopplerconfig and chassis-go's
@@ -25,6 +30,7 @@
 //
 // Combined usage example:
 //
+//	dopplerconfig.RequireChassisVersion() // must be first
 //	bootstrap := dopplerconfig.LoadBootstrapWithChassis()
 //	loader, _ := dopplerconfig.NewLoader[AppConfig](bootstrap)
 //	cfg, _ := loader.Load(ctx)
@@ -60,12 +66,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
-	"github.com/ai8future/chassis-go/call"
+	"github.com/ai8future/chassis-go/v5/call"
+	chassiserrors "github.com/ai8future/chassis-go/v5/errors"
+	"github.com/ai8future/chassis-go/v5/secval"
 )
 
 const (
@@ -304,8 +312,22 @@ func (p *DopplerProvider) FetchProject(ctx context.Context, project, config stri
 		}
 	}
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read doppler response: %w", err)
+	}
+
+	if err := secval.ValidateJSON(body); err != nil {
+		p.logger.Error("doppler response failed security validation",
+			"error", err,
+			"project", project,
+			"config", config,
+		)
+		return nil, fmt.Errorf("doppler response security validation failed: %w", err)
+	}
+
 	var dopplerResp dopplerSecretsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&dopplerResp); err != nil {
+	if err := json.Unmarshal(body, &dopplerResp); err != nil {
 		return nil, fmt.Errorf("failed to decode doppler response: %w", err)
 	}
 
@@ -345,6 +367,26 @@ type DopplerError struct {
 
 func (e *DopplerError) Error() string {
 	return fmt.Sprintf("doppler error %d: %s", e.StatusCode, e.Message)
+}
+
+// ServiceError converts a DopplerError to a chassis-go *errors.ServiceError
+// with appropriate HTTP/gRPC status codes. This allows Doppler errors to flow
+// through chassis-go error handling pipelines and RFC 9457 problem details.
+func (e *DopplerError) ServiceError() *chassiserrors.ServiceError {
+	var se *chassiserrors.ServiceError
+	switch {
+	case e.StatusCode == 401 || e.StatusCode == 403:
+		se = chassiserrors.UnauthorizedError(e.Message)
+	case e.StatusCode == 404:
+		se = chassiserrors.NotFoundError(e.Message)
+	case e.StatusCode == 429:
+		se = chassiserrors.RateLimitError(e.Message)
+	case e.StatusCode >= 500:
+		se = chassiserrors.DependencyError(e.Message)
+	default:
+		se = chassiserrors.InternalError(e.Message)
+	}
+	return se.WithDetail("doppler_status", fmt.Sprintf("%d", e.StatusCode)).WithCause(e)
 }
 
 // IsDopplerError checks if an error is a Doppler API error.
