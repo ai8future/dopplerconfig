@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4] - 2026-03-07
+
+### Fixed
+- Fix stale comment in chassis_test.go still referencing `RequireMajor(5)` instead of `RequireMajor(6)`
+
+(Claude Code:Opus 4.6)
+
 ## [1.1.3] - 2026-03-07
 
 ### Changed

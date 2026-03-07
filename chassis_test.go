@@ -234,7 +234,7 @@ func TestCircuitStateConstants(t *testing.T) {
 }
 
 func TestRequireChassisVersion(t *testing.T) {
-	// RequireChassisVersion should not panic — TestMain already called RequireMajor(5),
+	// RequireChassisVersion should not panic — TestMain already called RequireMajor(6),
 	// and calling it again is safe (idempotent).
 	RequireChassisVersion()
 }
