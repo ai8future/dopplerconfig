@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.3] - 2026-03-07
+
+### Changed
+- **Upgrade chassis-go v5.0.0 → v6.0.10**: Updated all import paths from `chassis-go/v5` to `chassis-go/v6`, version gate from `RequireMajor(5)` to `RequireMajor(6)`, and go.mod dependency
+- Added `VERSION.chassis` file tracking chassis-go version (6.0.10)
+
+(Claude Code:Opus 4.6)
+
 ## [1.1.2] - 2026-03-07
 - Sync uncommitted changes
 

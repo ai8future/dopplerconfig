@@ -1,10 +1,10 @@
 // Package dopplerconfig provides a unified configuration management system
 // using Doppler as the primary source, with fallback support for local files.
 //
-// # chassis-go v5.0.0 Integration
+// # chassis-go v6.0.0 Integration
 //
-// This package requires chassis-go v5.0.0+. Services must call
-// [RequireChassisVersion] (or chassis.RequireMajor(5) directly) before using
+// This package requires chassis-go v6.0.0+. Services must call
+// [RequireChassisVersion] (or chassis.RequireMajor(6) directly) before using
 // any chassis-go API. This is enforced at runtime — call.New, config.MustLoad,
 // and work.Map will crash without it.
 //
@@ -71,9 +71,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ai8future/chassis-go/v5/call"
-	chassiserrors "github.com/ai8future/chassis-go/v5/errors"
-	"github.com/ai8future/chassis-go/v5/secval"
+	"github.com/ai8future/chassis-go/v6/call"
+	chassiserrors "github.com/ai8future/chassis-go/v6/errors"
+	"github.com/ai8future/chassis-go/v6/secval"
 )
 
 const (

@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	chassis "github.com/ai8future/chassis-go/v5"
-	"github.com/ai8future/chassis-go/v5/call"
-	"github.com/ai8future/chassis-go/v5/config"
+	chassis "github.com/ai8future/chassis-go/v6"
+	"github.com/ai8future/chassis-go/v6/call"
+	"github.com/ai8future/chassis-go/v6/config"
 )
 
 // bootstrapEnv is the struct used by LoadBootstrapWithChassis to load
@@ -85,11 +85,11 @@ var ErrCircuitOpen = call.ErrCircuitOpen
 // Useful for diagnostic logging or health endpoints.
 var ChassisVersion = chassis.Version
 
-// RequireChassisVersion calls chassis.RequireMajor(5) so that consuming
+// RequireChassisVersion calls chassis.RequireMajor(6) so that consuming
 // services can satisfy the version gate without importing chassis-go directly.
 // Must be called before any chassis-go API (config.MustLoad, call.New, work.Map, etc.).
 func RequireChassisVersion() {
-	chassis.RequireMajor(5)
+	chassis.RequireMajor(6)
 }
 
 // HealthCheck returns a health check function compatible with chassis-go's

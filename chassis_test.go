@@ -8,13 +8,13 @@ import (
 	"os"
 	"testing"
 
-	chassis "github.com/ai8future/chassis-go/v5"
-	"github.com/ai8future/chassis-go/v5/call"
-	"github.com/ai8future/chassis-go/v5/testkit"
+	chassis "github.com/ai8future/chassis-go/v6"
+	"github.com/ai8future/chassis-go/v6/call"
+	"github.com/ai8future/chassis-go/v6/testkit"
 )
 
 func TestMain(m *testing.M) {
-	chassis.RequireMajor(5)
+	chassis.RequireMajor(6)
 	os.Exit(m.Run())
 }
 
@@ -243,9 +243,9 @@ func TestChassisVersion(t *testing.T) {
 	if ChassisVersion == "" {
 		t.Error("ChassisVersion should not be empty")
 	}
-	// Should be a semver starting with "5."
-	if ChassisVersion[0] != '5' {
-		t.Errorf("ChassisVersion = %q, want major version 5", ChassisVersion)
+	// Should be a semver starting with "6."
+	if ChassisVersion[0] != '6' {
+		t.Errorf("ChassisVersion = %q, want major version 6", ChassisVersion)
 	}
 }
 
