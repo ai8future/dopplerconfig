@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.5] - 2026-03-08
+- Upgrade chassis-go from v7 to v8: update all import paths across 5 Go files, go.mod require/replace, RequireMajor(8), VERSION.chassis
+- Normalize chassis-go replace path from absolute to relative
+- (Claude Code:Opus 4.6)
+
 ## [1.1.4] - 2026-03-07
 
 ### Fixed

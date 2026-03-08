@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ai8future/chassis-go/v6/work"
+	"github.com/ai8future/chassis-go/v8/work"
 )
 
 // MultiTenantLoader provides configuration loading for multi-tenant systems.
