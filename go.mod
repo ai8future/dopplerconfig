@@ -2,9 +2,9 @@ module github.com/ai8future/dopplerconfig
 
 go 1.25.5
 
-require github.com/ai8future/chassis-go/v8 v8.0.0
+require github.com/ai8future/chassis-go/v9 v9.0.0
 
-replace github.com/ai8future/chassis-go/v8 => ../../chassis_suite/chassis-go
+replace github.com/ai8future/chassis-go/v9 => ../../chassis_suite/chassis-go
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

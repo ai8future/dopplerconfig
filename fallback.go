@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ai8future/chassis-go/v8/secval"
+	"github.com/ai8future/chassis-go/v9/secval"
 )
 
 // FileProvider reads configuration from a local JSON file.
