@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.8] - 2026-03-22
+- Fix stale test comment referencing RequireMajor(9) instead of RequireMajor(10)
+- Fix README referencing chassis-go v9 instead of v10
+- (Claude Code:Opus 4.6)
+
+## [1.1.7] - 2026-03-22
+- Upgrade chassis-go from v9 to v10: update all import paths across 5 Go files (chassis.go, doppler.go, fallback.go, multitenant.go, chassis_test.go), go.mod require/replace, RequireMajor(10), VERSION.chassis
+- Update doc comments to reference chassis-go v10
+- Fix TestChassisVersion to check for major version "10." instead of stale '7' check
+- (Claude Code:Opus 4.6)
+
 ## [1.1.6] - 2026-03-08
 - Upgrade chassis-go from v8 to v9: update all import paths across 5 Go files, go.mod require/replace, RequireMajor(9), VERSION.chassis
 - Update doc comments to reference chassis-go v9

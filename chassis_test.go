@@ -8,13 +8,13 @@ import (
 	"os"
 	"testing"
 
-	chassis "github.com/ai8future/chassis-go/v9"
-	"github.com/ai8future/chassis-go/v9/call"
-	"github.com/ai8future/chassis-go/v9/testkit"
+	chassis "github.com/ai8future/chassis-go/v10"
+	"github.com/ai8future/chassis-go/v10/call"
+	"github.com/ai8future/chassis-go/v10/testkit"
 )
 
 func TestMain(m *testing.M) {
-	chassis.RequireMajor(9)
+	chassis.RequireMajor(10)
 	os.Exit(m.Run())
 }
 
@@ -234,7 +234,7 @@ func TestCircuitStateConstants(t *testing.T) {
 }
 
 func TestRequireChassisVersion(t *testing.T) {
-	// RequireChassisVersion should not panic — TestMain already called RequireMajor(9),
+	// RequireChassisVersion should not panic — TestMain already called RequireMajor(10),
 	// and calling it again is safe (idempotent).
 	RequireChassisVersion()
 }
@@ -243,9 +243,9 @@ func TestChassisVersion(t *testing.T) {
 	if ChassisVersion == "" {
 		t.Error("ChassisVersion should not be empty")
 	}
-	// Should be a semver starting with "7."
-	if ChassisVersion[0] != '7' {
-		t.Errorf("ChassisVersion = %q, want major version 7", ChassisVersion)
+	// Should be a semver starting with "10."
+	if len(ChassisVersion) < 3 || ChassisVersion[:3] != "10." {
+		t.Errorf("ChassisVersion = %q, want major version 10", ChassisVersion)
 	}
 }
 

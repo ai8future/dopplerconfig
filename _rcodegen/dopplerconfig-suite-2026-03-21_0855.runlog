@@ -1,0 +1,17 @@
+Tool:      rclaude
+Model:  opus
+Budget: $10.00
+Codebase:  dopplerconfig
+Output:    infra_suite/dopplerconfig/_rcodegen
+Command:   rclaude -A infra_suite suite
+Started:   2026-03-21 08:55:40
+Ended:     2026-03-21 10:46:12
+Duration:  110m 31s
+Exit Code: 0
+
+--- Token Usage ---
+Input:     2242
+Output:    13736
+Cache Read: 290265
+Cache Create: 54552
+Cost:      $1.2290

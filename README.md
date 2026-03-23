@@ -21,7 +21,7 @@ A Go library for type-safe configuration management using [Doppler](https://www.
 go get github.com/ai8future/dopplerconfig
 ```
 
-Requires **Go 1.25.5+** and chassis-go v9.
+Requires **Go 1.25.5+** and chassis-go v10.
 
 ## Quick Start
 
