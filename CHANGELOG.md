@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.9] - 2026-03-26
+- GO-BEST-PRACTICES conformance: Makefile with cross-platform build targets (build-linux, build-darwin, build-all), launcher script, binary naming, LDFLAGS with version injection, CGO_ENABLED=0 static builds
+- Agent: Claude:Opus 4.6
+
 ## [1.1.8] - 2026-03-22
 - Fix stale test comment referencing RequireMajor(9) instead of RequireMajor(10)
 - Fix README referencing chassis-go v9 instead of v10
