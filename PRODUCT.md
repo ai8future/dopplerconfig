@@ -170,7 +170,7 @@ These are the two canonical configuration patterns in the organization, and dopp
 
 ## Lifecycle and Maturity
 
-- **Current version:** 1.1.8
+- **Current version:** 1.1.10
 - **First release:** January 2026 (v0.1.0)
 - **Stable since:** January 2026 (v1.0.0)
 - **Major upgrade:** February 2026 (v2.0.0) added chassis-go integration

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.10] - 2026-03-27
+- Add comprehensive test coverage for 4 previously untested subsystems: feature_flags_test.go, fallback_test.go, watcher_test.go, multitenant_test.go, and config_test.go
+- Coverage increased from 33.9% to 69.8% (statement coverage doubled)
+- All tests pass with -race flag (no race conditions)
+- Deleted 3 processed rcodegen test reports
+- (Claude Code:Opus 4.6)
+
 ## [1.1.9] - 2026-03-26
 - GO-BEST-PRACTICES conformance: Makefile with cross-platform build targets (build-linux, build-darwin, build-all), launcher script, binary naming, LDFLAGS with version injection, CGO_ENABLED=0 static builds
 - Agent: Claude:Opus 4.6
