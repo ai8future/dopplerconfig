@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	chassis "github.com/ai8future/chassis-go/v10"
+	dopplerconfig "github.com/ai8future/dopplerconfig"
 )
 
-var version = "dev"
-
 func main() {
-	chassis.SetAppVersion(version)
+	chassis.SetAppVersion(dopplerconfig.AppVersion)
 	chassis.RequireMajor(10)
-	fmt.Printf("dopplerconfig %s\n", version)
+	fmt.Printf("dopplerconfig %s\n", dopplerconfig.AppVersion)
 }
