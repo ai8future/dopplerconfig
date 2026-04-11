@@ -4,7 +4,7 @@
 // # chassis-go v10.0.0 Integration
 //
 // This package requires chassis-go v10.0.0+. Services must call
-// [RequireChassisVersion] (or chassis.RequireMajor(10) directly) before using
+// [RequireChassisVersion] (or chassis.RequireMajor(11) directly) before using
 // any chassis-go API. This is enforced at runtime — call.New, config.MustLoad,
 // and work.Map will crash without it.
 //
@@ -71,9 +71,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ai8future/chassis-go/v10/call"
-	chassiserrors "github.com/ai8future/chassis-go/v10/errors"
-	"github.com/ai8future/chassis-go/v10/secval"
+	"github.com/ai8future/chassis-go/v11/call"
+	chassiserrors "github.com/ai8future/chassis-go/v11/errors"
+	"github.com/ai8future/chassis-go/v11/secval"
 )
 
 const (

@@ -8,13 +8,13 @@ import (
 	"os"
 	"testing"
 
-	chassis "github.com/ai8future/chassis-go/v10"
-	"github.com/ai8future/chassis-go/v10/call"
-	"github.com/ai8future/chassis-go/v10/testkit"
+	chassis "github.com/ai8future/chassis-go/v11"
+	"github.com/ai8future/chassis-go/v11/call"
+	"github.com/ai8future/chassis-go/v11/testkit"
 )
 
 func TestMain(m *testing.M) {
-	chassis.RequireMajor(10)
+	chassis.RequireMajor(11)
 	os.Exit(m.Run())
 }
 
@@ -234,7 +234,7 @@ func TestCircuitStateConstants(t *testing.T) {
 }
 
 func TestRequireChassisVersion(t *testing.T) {
-	// RequireChassisVersion should not panic — TestMain already called RequireMajor(10),
+	// RequireChassisVersion should not panic — TestMain already called RequireMajor(11),
 	// and calling it again is safe (idempotent).
 	RequireChassisVersion()
 }
