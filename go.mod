@@ -2,7 +2,7 @@ module github.com/ai8future/dopplerconfig
 
 go 1.25.5
 
-require github.com/ai8future/chassis-go/v11 v11.0.0
+require github.com/ai8future/chassis-go/v11 v11.1.3
 
 replace github.com/ai8future/chassis-go/v11 => ../../chassis_suite/chassis-go
 
